@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: trojan-horse
+  namespace: REPLACE_WITH_NAMESPACE
+spec:
+  replicas: 1
+  strategy:
+    type: Rolling
+    rollingParams:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    name: trojan-horse
+  template:
+    metadata:
+      labels:
+        name: trojan-horse
+    spec:
+      containers:
+        - name: trojan-horse
+          image: rhel7-dropbear:latest
+          imagePullPolicy: Always
+          # command:
+          #   - sh
+          # args:
+          #   - -c
+          #   - sleep infinity
+          env:
+            - name: TZ
+              value: Europe/Stockholm
+          ports:
+            - name: 8080-tcp
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
+  test: false
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - trojan-horse
+        from:
+          kind: ImageStreamTag
+          name: rhel7-dropbear:latest

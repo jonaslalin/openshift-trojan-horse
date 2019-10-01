@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Route
+metadata:
+  name: trojan-horse
+  namespace: REPLACE_WITH_NAMESPACE
+spec:
+  host: REPLACE_WITH_TROJAN_HOSTNAME
+  path: /
+  port:
+    targetPort: 8080-tcp
+  to:
+    kind: Service
+    name: trojan-horse
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow

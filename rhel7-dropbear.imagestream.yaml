@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ImageStream
+metadata:
+  name: rhel7-dropbear
+  namespace: REPLACE_WITH_NAMESPACE
+spec:
+  lookupPolicy:
+    local: false

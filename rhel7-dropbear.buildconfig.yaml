@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  name: rhel7-dropbear
+  namespace: REPLACE_WITH_NAMESPACE
+spec:
+  completionDeadlineSeconds: 300
+  source:
+    type: Docker
+    dockerfile: |
+      FROM rhel7:latest
+      USER 0
+      WORKDIR /tmp
+      RUN export http_proxy=REPLACE_WITH_HTTP_PROXY && \
+          export https_proxy=REPLACE_WITH_HTTPS_PROXY && \
+          export no_proxy=REPLACE_WITH_NO_PROXY && \
+          yum -y install \
+                 https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
+          rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7 \
+              --import /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release && \
+          yum -y install \
+                 dropbear \
+                 net-tools \
+                 nss_wrapper \
+                 socat && \
+          printf "%s\n" \
+                 "unset BASH_ENV ENV PROMPT_COMMAND" \
+                 "export HOME=/tmp/user" \
+                 "export NSS_WRAPPER_PASSWD=/var/tmp/passwd" \
+                 "export NSS_WRAPPER_GROUP=/etc/group" \
+                 "if [ ! -d \"\$HOME\" ]; then" \
+                 "    mkdir \"\$HOME\"" \
+                 "fi" \
+                 "if [ ! -f \"\$NSS_WRAPPER_PASSWD\" ]; then" \
+                 "    echo \"user:x:\$(id -u):\$(id -g)::/tmp/user:/bin/bash\" 1>/var/tmp/passwd" \
+                 "fi" \
+                 "export LD_PRELOAD=libnss_wrapper.so" \
+                 1>/tmp/generate_container_user && \
+          printf "%s\n" \
+                 "#!/bin/bash" \
+                 "if [ ! -f \"\$HOME/.bash_profile\" ]; then" \
+                 "    printf \"%s\n\" \\" \
+                 "           \"export BASH_ENV=/tmp/generate_container_user\" \\" \
+                 "           \"export ENV=/tmp/generate_container_user\" \\" \
+                 "           \"export PROMPT_COMMAND=\\\". /tmp/generate_container_user\\\"\" \\" \
+                 "           1>\"\$HOME/.bash_profile\"" \
+                 "fi" \
+                 "if [ ! -d \"\$HOME/.ssh\" ]; then" \
+                 "    mkdir \"\$HOME/.ssh\"" \
+                 "    printf \"%b\" \\" \
+                 "           \"ssh-rsa \" \\" \
+                 "           \"AAAAB3NzaC1yc2EAAAABJQAAAQEA4cbXhqHAgO40BOtuQcVGUMejR2ZSnRxHyVhh\" \\" \
+                 "           \"liEdkAywjujOvUW+U9uG0ieLCmm76R9N0a3ocHn9EAy/0JnewnsgyU/StIzEtsIe\" \\" \
+                 "           \"ia12yLaDFe8F4Dp1nYi+i4Qi7sXCS+MM6lB1JoDm0ZF6oq4Am2P4NzFnnMqrkpt5\" \\" \
+                 "           \"+5wYt3CyfKxgH+BomnLT/2mJRElfma50w01EDOfN4Fj+0dXMijXve1Q2bg3TZqZQ\" \\" \
+                 "           \"p85UOiL7AqBvC18EZPlnXuEUI5pzV3j7+Dt4NjjjHLND48YNbbIp1oV4JF0Cd0G0\" \\" \
+                 "           \"OcM0W4FTuM+xC2S+Rmgy0oIp/LA55LTOJw44zXahyoJOl/9D8w==\\n\" \\" \
+                 "           1>>\"\$HOME/.ssh/authorized_keys\"" \
+                 "fi" \
+                 "exec dropbear \"\$@\"" \
+                 1>/tmp/dropbear_wrapper && \
+          chmod a+x /tmp/dropbear_wrapper && \
+          dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key && \
+          dropbearkey -t dss -f /etc/dropbear/dropbear_dss_host_key && \
+          dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key && \
+          chmod g+r /etc/dropbear/*
+      ENV BASH_ENV=/tmp/generate_container_user \
+          ENV=/tmp/generate_container_user \
+          PROMPT_COMMAND=". /tmp/generate_container_user"
+      ENTRYPOINT ["/tmp/dropbear_wrapper"]
+      CMD ["-F", "-E", "-a", "-p", "0.0.0.0:2222"]
+      EXPOSE 2222
+  strategy:
+    type: Docker
+    dockerStrategy:
+      from:
+        kind: ImageStreamTag
+        name: rhel7:latest
+        forcePull: true
+  output:
+    to:
+      kind: ImageStreamTag
+      name: rhel7-dropbear:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChange: {}
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1000Mi

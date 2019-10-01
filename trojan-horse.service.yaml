@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: trojan-horse
+  namespace: REPLACE_WITH_NAMESPACE
+spec:
+  ports:
+    - name: 8080-tcp
+      port: 8080
+      targetPort: 8080-tcp
+  selector:
+    name: trojan-horse
